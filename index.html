@@ -5,10 +5,37 @@
   <title>Sydney Trains Live</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
   <style>
-    html, body, #map { height: 100%; margin: 0; }
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; }
+    #searchBar {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      padding: 5px;
+      background: white;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    #stationSearch {
+      position: absolute;
+      top: 50px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      padding: 5px;
+      background: white;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
   </style>
 </head>
 <body>
+
+<input id="searchBar" type="text" placeholder="Search by line (T1–T9) or ID">
+<input id="stationSearch" type="text" placeholder="Type station (e.g., Central) and press Enter">
+
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -17,10 +44,7 @@ const map = L.map("map").setView([-33.87, 151.21], 10);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-// Markers for trains
 const markers = {};
-
-// Line colours
 const lineColors = {
   "T1": "red",
   "T2": "blue",
@@ -33,35 +57,86 @@ const lineColors = {
   "T9": "yellow"
 };
 
+let trainsData = []; 
+
+// Major stations list
+const stations = {
+  "Central": [-33.8830, 151.2060],
+  "Town Hall": [-33.8731, 151.2060],
+  "Wynyard": [-33.8668, 151.2073],
+  "Circular Quay": [-33.8612, 151.2125],
+  "Martin Place": [-33.8695, 151.2110],
+  "Redfern": [-33.8921, 151.1985],
+  "Strathfield": [-33.8837, 151.0842],
+  "Parramatta": [-33.8130, 151.0013],
+  "Chatswood": [-33.7963, 151.1839],
+  "Hurstville": [-33.9617, 151.1010],
+  "Campbelltown": [-34.0567, 150.7957],
+  "Penrith": [-33.7515, 150.6940],
+  "Blacktown": [-33.7734, 150.9119],
+  "Hornsby": [-33.7037, 151.0993],
+  "Bondi Junction": [-33.8920, 151.2422],
+  "Newtown": [-33.8978, 151.1674],
+  "Sydenham": [-33.9230, 151.1726],
+  "Granville": [-33.8334, 151.0147]
+};
+
 async function update() {
   try {
     const res = await fetch("https://sydney-trains.onrender.com/vehicles");
-    const trains = await res.json();
-
-    trains.forEach(t => {
-      if (!t.lat || !t.lon) return;
-
-      const color = lineColors[t.route] || "gray";
-
-      if (!markers[t.id]) {
-        markers[t.id] = L.circleMarker([t.lat, t.lon], {
-          radius: 6,
-          color: color,
-          fillColor: color,
-          fillOpacity: 0.8
-        }).addTo(map);
-      } else {
-        markers[t.id].setLatLng([t.lat, t.lon]);
-        markers[t.id].setStyle({ color: color, fillColor: color });
-      }
-    });
+    trainsData = await res.json();
+    drawMarkers(trainsData);
   } catch(err) {
     console.error("Failed to fetch trains:", err);
   }
 }
 
+function drawMarkers(data) {
+  data.forEach(t => {
+    if (!t.lat || !t.lon) return;
+    const color = lineColors[t.route] || "gray";
+    if (!markers[t.id]) {
+      markers[t.id] = L.circleMarker([t.lat, t.lon], {
+        radius: 6,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.8
+      }).addTo(map);
+    } else {
+      markers[t.id].setLatLng([t.lat, t.lon]);
+      markers[t.id].setStyle({ color: color, fillColor: color });
+    }
+  });
+}
+
+// Filter
+document.getElementById("searchBar").addEventListener("input", (e) => {
+  const query = e.target.value.trim().toUpperCase();
+  Object.keys(markers).forEach(id => {
+    const marker = markers[id];
+    const train = trainsData.find(t => t.id === id);
+    if (!train) return;
+    const match = train.route === query || train.id.toUpperCase().includes(query) || query === "";
+    if (match) marker.addTo(map);
+    else map.removeLayer(marker);
+  });
+});
+
+// Station search
+document.getElementById("stationSearch").addEventListener("keypress", function(e) {
+  if (e.key === "Enter") {
+    const name = e.target.value.trim();
+    if (stations[name]) {
+      map.setView(stations[name], 15);
+    } else {
+      alert("Station not found!");
+    }
+  }
+});
+
 update();
 setInterval(update, 15000);
 </script>
+
 </body>
 </html>
