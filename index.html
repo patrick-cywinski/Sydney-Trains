@@ -17,20 +17,47 @@ const map = L.map("map").setView([-33.87, 151.21], 10);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
+// Markers for trains
 const markers = {};
 
-async function update() {
-  const res = await fetch("https://YOUR-BACKEND.onrender.com/vehicles");
-  const trains = await res.json();
+// Line colours
+const lineColors = {
+  "T1": "red",
+  "T2": "blue",
+  "T3": "green",
+  "T4": "orange",
+  "T5": "purple",
+  "T6": "pink",
+  "T7": "brown",
+  "T8": "cyan",
+  "T9": "yellow"
+};
 
-  trains.forEach(t => {
-    if (!markers[t.id]) {
-      markers[t.id] = L.circleMarker([t.lat, t.lon], { radius: 6 })
-        .addTo(map);
-    } else {
-      markers[t.id].setLatLng([t.lat, t.lon]);
-    }
-  });
+async function update() {
+  try {
+    const res = await fetch("https://sydney-trains.onrender.com/vehicles");
+    const trains = await res.json();
+
+    trains.forEach(t => {
+      if (!t.lat || !t.lon) return;
+
+      const color = lineColors[t.route] || "gray";
+
+      if (!markers[t.id]) {
+        markers[t.id] = L.circleMarker([t.lat, t.lon], {
+          radius: 6,
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.8
+        }).addTo(map);
+      } else {
+        markers[t.id].setLatLng([t.lat, t.lon]);
+        markers[t.id].setStyle({ color: color, fillColor: color });
+      }
+    });
+  } catch(err) {
+    console.error("Failed to fetch trains:", err);
+  }
 }
 
 update();
